@@ -90,7 +90,7 @@ targets:
     mode: development
     default: true
     workspace:
-      host: https://fevm-hls-fde.cloud.databricks.com
+      # No host here: the CLI uses the workspace it runs in (profile or web terminal), so any workspace can deploy dev.
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}${var.instance_suffix}/${bundle.target}
     variables:
       # Example placeholders — override at deploy time with --var flags.
