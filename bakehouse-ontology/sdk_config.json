@@ -1,0 +1,15 @@
+{
+  "target_catalog": "serverless_stable_3sl6g4_catalog",
+  "target_schema": "ontology_bakehouse",
+  "domain_name": "bakehouse_sales",
+  "domain_context": "Bakehouse franchise sales: customers buy bakery products at franchise locations supplied by ingredient suppliers, and leave reviews.",
+  "source_tables": [
+    "samples.bakehouse.sales_transactions",
+    "samples.bakehouse.sales_customers",
+    "samples.bakehouse.sales_franchises",
+    "samples.bakehouse.sales_suppliers",
+    "samples.bakehouse.media_customer_reviews"
+  ],
+  "warehouse_id": "f426795d2c7975a4",
+  "max_metric_views_per_agent": 30
+}
