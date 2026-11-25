@@ -4,6 +4,7 @@
   "workflow": {
     "mode": "hybrid"
   },
+  "branch": "bw-bakehouse-test",
   "bundle_target": "dev",
   "status_dir": ".build-status",
   "plans_dir": "docs/plans",
@@ -146,7 +147,8 @@
             "docs/registration/**"
           ],
           "authorizations": [
-            {"action": "jobs.run_now", "target": "register_metric_views job of the ontology-metric-views bundle (dev target)", "reason": "Registration is this session's deliverable; the job is run with bundle run register_metric_views."}
+            {"action": "jobs.run_now", "target": "register_metric_views job of the ontology-metric-views bundle (dev target)", "reason": "Registration is this session's deliverable; the job is run with bundle run register_metric_views."},
+            {"action": "bundle.deploy", "target": "ontology-metric-views bundle (dev target)", "reason": "Deploying the metric view bundle before running register_metric_views is this session's deliverable."}
           ],
           "depends_on": ["05"]
         }
@@ -227,6 +229,9 @@
           "owned_paths": [
             "docs/deployment/**"
           ],
+          "authorizations": [
+            {"action": "bundle.deploy", "target": "ontology-genie-agents bundle (dev target)", "reason": "Deploying the rendered Genie Agents is this session's deliverable."}
+          ],
           "depends_on": ["08"]
         }
       ]
@@ -262,7 +267,9 @@
             "ontology-genie-agents/agents/**"
           ],
           "authorizations": [
-            {"action": "jobs.run_now", "target": "register_metric_views job of the ontology-metric-views bundle (dev target)", "reason": "Re-registering tuned metric views before the re-run benchmark."}
+            {"action": "jobs.run_now", "target": "register_metric_views job of the ontology-metric-views bundle (dev target)", "reason": "Re-registering tuned metric views before the re-run benchmark."},
+            {"action": "bundle.deploy", "target": "ontology-metric-views bundle (dev target)", "reason": "Redeploying tuned metric views and agents before the re-run benchmark."},
+            {"action": "bundle.deploy", "target": "ontology-genie-agents bundle (dev target)", "reason": "Redeploying tuned metric views and agents before the re-run benchmark."}
           ],
           "depends_on": ["09"]
         }
