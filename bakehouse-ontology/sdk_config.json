@@ -10,6 +10,9 @@
     "samples.bakehouse.sales_suppliers",
     "samples.bakehouse.media_customer_reviews"
   ],
+  "supplemental_volume_dirs": [
+    "/Volumes/genie_sdk_bakehouse/inputs/requirements/"
+  ],
   "warehouse_id": "c86f5b750db10e6c",
   "max_metric_views_per_agent": 30
 }
