@@ -1,0 +1,114 @@
+# subdomain: franchise_network
+# Franchise-grain network footprint. One row of source = one franchise location.
+# Sources: docs/research/02_kpi_definitions.md (approved supplier share), docs/research/05_domain_subdomain_proposal.md,
+# docs/context/bakehouse_business_requirements_md_context.md, docs/data_profiles/sales_franchises.md,
+# docs/data_profiles/sales_suppliers.md, docs/data_profiles/data_model_summary.md.
+version: 1.1
+comment: >-
+  Franchise network footprint at franchise grain (one row per franchise location): franchise counts by country,
+  city and size, and supplier coverage. Supplier attributes are LEFT-joined; franchises whose supplierID has no
+  supplier record are labelled 'Unknown supplier' and are never dropped. Only suppliers with approved = 'Y' count
+  as approved. Sales and review measures live in mv_bakehouse_sales_transactions and mv_bakehouse_customer_reviews.
+
+source: ${source_catalog}.${source_schema}.sales_franchises
+
+joins:
+  # verified: sales_franchises -> sales_suppliers on supplierID = supplierID, orphan_rate 0.4375 (one_to_one on matched keys; unmatched franchises keep their rows)
+  - name: suppliers
+    source: ${source_catalog}.${source_schema}.sales_suppliers
+    on: source.supplierID = suppliers.supplierID
+    cardinality: many_to_one
+    rely:
+      at_most_one_match: true
+
+dimensions:
+  - name: Franchise ID
+    expr: source.franchiseID
+    comment: "Franchise identifier; use it to tell apart franchises that share a name"
+  - name: Franchise Name
+    expr: source.name
+    comment: "Franchise store name; not unique (two names are used by two franchises each), so count by Franchise ID"
+    synonyms:
+      - store
+      - outlet
+      - location
+      - shop
+  - name: Franchise City
+    expr: source.city
+    comment: "City where the franchise is located"
+    synonyms:
+      - city
+      - store city
+  - name: Franchise District
+    expr: source.district
+    comment: "District (neighbourhood) of the franchise location"
+  - name: Franchise Country
+    expr: source.country
+    comment: "Country where the franchise is located (US, Japan, Australia, ...). Uses 'US', not 'USA'"
+    synonyms:
+      - country
+      - market
+      - store country
+  - name: Franchise Size
+    expr: source.size
+    comment: "Franchise size class S, M, L, XL, XXL; sort by Franchise Size Rank, not alphabetically"
+    synonyms:
+      - store size
+      - outlet size
+  - name: Franchise Size Rank
+    expr: CASE `Franchise Size` WHEN 'S' THEN 1 WHEN 'M' THEN 2 WHEN 'L' THEN 3 WHEN 'XL' THEN 4 WHEN 'XXL' THEN 5 END
+    comment: "Sort order for Franchise Size (S=1 ... XXL=5)"
+  - name: Supplier Name
+    expr: COALESCE(suppliers.name, 'Unknown supplier')
+    comment: "Ingredient supplier of the franchise; 'Unknown supplier' when the franchise's supplierID has no supplier record"
+    synonyms:
+      - supplier
+      - vendor
+  - name: Supplier Ingredient
+    expr: COALESCE(suppliers.ingredient, 'Unknown supplier')
+    comment: "Ingredient the franchise's supplier provides; 'Unknown supplier' when there is no supplier record"
+    synonyms:
+      - ingredient
+  - name: Supplier Continent
+    expr: COALESCE(suppliers.continent, 'Unknown supplier')
+    comment: "Continent of the franchise's supplier; 'Unknown supplier' when there is no supplier record"
+  - name: Supplier Size
+    expr: COALESCE(suppliers.size, 'Unknown supplier')
+    comment: "Size class of the supplier (S, M, L, XL, XXL); 'Unknown supplier' when there is no supplier record"
+  - name: Supplier Status
+    expr: CASE WHEN suppliers.supplierID IS NULL THEN 'Unknown supplier' WHEN suppliers.approved = 'Y' THEN 'Approved' ELSE 'Not approved' END
+    comment: "Approved when the supplier record has approved = 'Y'; Unknown supplier when there is no supplier record"
+    synonyms:
+      - supplier approval
+
+measures:
+  - name: Franchises
+    expr: COUNT(DISTINCT source.franchiseID)
+    comment: "Number of franchise locations"
+    synonyms:
+      - franchise count
+      - store count
+      - number of stores
+      - outlets
+  - name: Franchises With Approved Supplier
+    expr: COUNT(DISTINCT source.franchiseID) FILTER (WHERE suppliers.approved = 'Y')
+    comment: "Franchises whose supplier record exists and has approved = 'Y'"
+  - name: Franchises With Unknown Supplier
+    expr: COUNT(DISTINCT source.franchiseID) FILTER (WHERE suppliers.supplierID IS NULL)
+    comment: "Franchises whose supplierID has no record in the supplier table"
+    synonyms:
+      - unmatched suppliers
+  - name: Approved Supplier Share
+    expr: MEASURE(`Franchises With Approved Supplier`) / MEASURE(`Franchises`)
+    comment: "Franchises supplied by an approved supplier divided by all franchises; franchises with an unknown supplier count in the denominator only"
+    format:
+      type: percentage
+      decimal_places:
+        type: exact
+        places: 1
+  - name: Suppliers
+    expr: COUNT(DISTINCT suppliers.supplierID)
+    comment: "Distinct known suppliers serving these franchises (unknown suppliers not counted)"
+    synonyms:
+      - supplier count
+      - vendors

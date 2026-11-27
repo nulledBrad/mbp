@@ -1,0 +1,285 @@
+# subdomain: sales
+# Transaction-grain sales metrics. One row of source = one POS sales transaction (one product line).
+# Sources: docs/research/02_kpi_definitions.md, docs/context/bakehouse_business_requirements_md_context.md,
+# docs/data_profiles/sales_transactions.md, docs/data_profiles/data_model_summary.md.
+version: 1.1
+comment: >-
+  Bakehouse franchise sales at transaction grain (one row per POS transaction, one product line each):
+  revenue, units, transactions, average order value, average unit price, active customers, revenue per franchise
+  and product / payment-method revenue share. Franchise location (country, city) comes from the franchise, not
+  the customer; customer geography is only for questions about customers from a place. Supplier attributes are
+  LEFT-joined and franchises without a supplier record are labelled 'Unknown supplier' (about half of revenue).
+  Card numbers and customer personal data are not exposed. Data covers 2024-05-01 to 2024-05-17.
+
+source: ${source_catalog}.${source_schema}.sales_transactions
+
+joins:
+  # verified: sales_transactions -> sales_customers on customerID = customerID, orphan_rate 0.0
+  - name: customers
+    source: ${source_catalog}.${source_schema}.sales_customers
+    on: source.customerID = customers.customerID
+    cardinality: many_to_one
+    rely:
+      at_most_one_match: true
+  # verified: sales_transactions -> sales_franchises on franchiseID = franchiseID, orphan_rate 0.0
+  - name: franchises
+    source: ${source_catalog}.${source_schema}.sales_franchises
+    on: source.franchiseID = franchises.franchiseID
+    cardinality: many_to_one
+    rely:
+      at_most_one_match: true
+    joins:
+      # verified: sales_franchises -> sales_suppliers on supplierID = supplierID, orphan_rate 0.4375 (one_to_one on matched keys; unmatched franchises keep their rows)
+      - name: suppliers
+        source: ${source_catalog}.${source_schema}.sales_suppliers
+        on: franchises.supplierID = suppliers.supplierID
+        cardinality: many_to_one
+        rely:
+          at_most_one_match: true
+
+dimensions:
+  - name: Transaction Time
+    expr: source.dateTime
+    comment: "Timestamp of the POS transaction"
+    format:
+      type: date_time
+      date_format: year_month_day
+      time_format: locale_hour_minute
+  - name: Transaction Date
+    expr: DATE_TRUNC('DAY', source.dateTime)
+    comment: "Calendar day of the transaction; the default time grain"
+    synonyms:
+      - day
+      - sales date
+    format:
+      type: date
+      date_format: year_month_day
+  - name: Transaction Week
+    expr: DATE_TRUNC('WEEK', source.dateTime)
+    comment: "Week of the transaction; weeks start on Monday"
+    synonyms:
+      - week
+    format:
+      type: date
+      date_format: year_month_day
+  - name: Transaction Month
+    expr: DATE_TRUNC('MONTH', source.dateTime)
+    synonyms:
+      - month
+    format:
+      type: date
+      date_format: locale_short_month
+  - name: Product
+    expr: source.product
+    comment: "Bakery product sold (6 products, e.g. Golden Gate Ginger, Tokyo Tidbits)"
+    synonyms:
+      - item
+      - bakery product
+      - SKU
+      - cookie
+  - name: Payment Method
+    expr: INITCAP(source.paymentMethod)
+    comment: "Card scheme used to pay, shown capitalised: Amex, Mastercard, Visa"
+    synonyms:
+      - card type
+      - tender type
+      - payment type
+  - name: Franchise ID
+    expr: source.franchiseID
+    comment: "Franchise identifier; use it to tell apart franchises that share a name"
+  - name: Franchise Name
+    expr: franchises.name
+    comment: "Franchise store name; not unique (two names are used by two franchises each), so group by Franchise ID too"
+    synonyms:
+      - store
+      - outlet
+      - location
+      - shop
+  - name: Franchise City
+    expr: franchises.city
+    comment: "City where the franchise is located; 'sales in <city>' means this field"
+    synonyms:
+      - store city
+      - city
+  - name: Franchise Country
+    expr: franchises.country
+    comment: "Country where the franchise is located (US, Japan, Australia, ...); 'sales in <country>' means this field. Uses 'US', not 'USA'"
+    synonyms:
+      - country
+      - store country
+      - market
+  - name: Franchise Size
+    expr: franchises.size
+    comment: "Franchise size class S, M, L, XL, XXL; sort by Franchise Size Rank, not alphabetically"
+    synonyms:
+      - store size
+      - outlet size
+  - name: Franchise Size Rank
+    expr: CASE `Franchise Size` WHEN 'S' THEN 1 WHEN 'M' THEN 2 WHEN 'L' THEN 3 WHEN 'XL' THEN 4 WHEN 'XXL' THEN 5 END
+    comment: "Sort order for Franchise Size (S=1 ... XXL=5)"
+  - name: Supplier Name
+    expr: COALESCE(franchises.suppliers.name, 'Unknown supplier')
+    comment: "Ingredient supplier of the franchise; 'Unknown supplier' when the franchise's supplierID has no supplier record"
+    synonyms:
+      - supplier
+      - vendor
+  - name: Supplier Ingredient
+    expr: COALESCE(franchises.suppliers.ingredient, 'Unknown supplier')
+    comment: "Ingredient the franchise's supplier provides; 'Unknown supplier' when there is no supplier record"
+    synonyms:
+      - ingredient
+  - name: Supplier Continent
+    expr: COALESCE(franchises.suppliers.continent, 'Unknown supplier')
+    comment: "Continent of the franchise's supplier; 'Unknown supplier' when there is no supplier record"
+  - name: Customer Country
+    expr: customers.country
+    comment: "Home country of the customer (Australia, USA, Japan); use only for questions about customers from a country. Uses 'USA', not 'US'"
+    synonyms:
+      - customers from
+  - name: Customer Continent
+    expr: customers.continent
+    comment: "Home continent of the customer; use only for questions about customers from a place"
+
+measures:
+  - name: Revenue
+    expr: SUM(source.totalPrice)
+    comment: "Gross sales: sum of totalPrice (already quantity x unit price; never recomputed). Currency not stated in the source"
+    synonyms:
+      - sales
+      - gross sales
+      - turnover
+      - total sales
+  - name: Units Sold
+    expr: SUM(source.quantity)
+    comment: "Number of product units sold"
+    synonyms:
+      - quantity
+      - volume
+      - items sold
+  - name: Transactions
+    expr: COUNT(DISTINCT source.transactionID)
+    comment: "Number of distinct POS transactions (orders)"
+    synonyms:
+      - transaction count
+      - orders
+      - order count
+      - sales count
+  - name: Average Order Value
+    expr: MEASURE(`Revenue`) / MEASURE(`Transactions`)
+    comment: "Revenue divided by transactions in the same period and filters"
+    synonyms:
+      - AOV
+      - average transaction value
+      - ATV
+      - average ticket
+    format:
+      type: number
+      decimal_places:
+        type: exact
+        places: 2
+  - name: Average Unit Price
+    expr: MEASURE(`Revenue`) / MEASURE(`Units Sold`)
+    comment: "Weighted average price per unit: revenue divided by units sold (not an average of unitPrice)"
+    synonyms:
+      - average selling price
+      - ASP
+      - price per unit
+    format:
+      type: number
+      decimal_places:
+        type: exact
+        places: 2
+  - name: Active Customers
+    expr: COUNT(DISTINCT source.customerID)
+    comment: "Distinct customers with at least one transaction in the filtered period; counts only, never lists individuals"
+    synonyms:
+      - customers who bought
+      - buying customers
+      - unique customers
+  - name: Franchises With Sales
+    expr: COUNT(DISTINCT source.franchiseID)
+    comment: "Distinct franchises with at least one transaction in the filtered period"
+    synonyms:
+      - selling franchises
+      - active stores
+  - name: Revenue per Franchise
+    expr: MEASURE(`Revenue`) / MEASURE(`Franchises With Sales`)
+    comment: "Revenue divided by the number of franchises with sales in the same period and filters"
+    synonyms:
+      - average revenue per store
+      - sales per outlet
+    format:
+      type: number
+      decimal_places:
+        type: exact
+        places: 2
+  - name: Revenue per Customer
+    expr: MEASURE(`Revenue`) / MEASURE(`Active Customers`)
+    comment: "Revenue divided by active customers; a historical proxy for customer lifetime value (no cost data, so not profit-based)"
+    synonyms:
+      - average customer spend
+      - customer lifetime value proxy
+    format:
+      type: number
+      decimal_places:
+        type: exact
+        places: 2
+  - name: Revenue All Products
+    expr: SUM(source.totalPrice)
+    comment: "Revenue across all products for the other grouping dimensions; denominator of Product Revenue Share"
+    window:
+      - order: Product
+        range: all
+  - name: Product Revenue Share
+    expr: MEASURE(`Revenue`) / MEASURE(`Revenue All Products`)
+    comment: "Share of revenue for a product out of revenue for all products under the same other dimensions and the view filter. A query filter on Product does not shrink the denominator"
+    synonyms:
+      - product mix
+      - share of sales
+    format:
+      type: percentage
+      decimal_places:
+        type: exact
+        places: 1
+  - name: Revenue All Payment Methods
+    expr: SUM(source.totalPrice)
+    comment: "Revenue across all payment methods for the other grouping dimensions; denominator of Payment Method Revenue Share"
+    window:
+      - order: Payment Method
+        range: all
+  - name: Payment Method Revenue Share
+    expr: MEASURE(`Revenue`) / MEASURE(`Revenue All Payment Methods`)
+    comment: "Share of revenue paid with a payment method out of revenue for all payment methods under the same other dimensions"
+    synonyms:
+      - payment mix
+      - tender mix
+    format:
+      type: percentage
+      decimal_places:
+        type: exact
+        places: 1
+
+# Materialization: threshold met by joins >= 3 (customers, franchises, nested suppliers) and headline KPIs
+# (revenue, units, transactions, AOV per the requirements). Source is small (3,333 rows), so this is for KPI
+# frequency, not performance. Window share measures are left out of the aggregated entry.
+materialization:
+  mode: relaxed
+  schedule: every 6 hours
+  materialized_views:
+    - name: sales_by_product_payment_franchise_geo
+      type: aggregated
+      dimensions:
+        - Product
+        - Payment Method
+        - Franchise Country
+        - Franchise Size
+        - Supplier Name
+      measures:
+        - Revenue
+        - Units Sold
+        - Transactions
+        - Active Customers
+        - Franchises With Sales
+      refresh_policy: auto
+      cluster_by:
+        auto: true

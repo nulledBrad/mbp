@@ -1,0 +1,81 @@
+# subdomain: customer_feedback
+# Review-grain customer feedback. One row of source = one customer review of a franchise.
+# Sources: docs/research/02_kpi_definitions.md (review count), docs/context/bakehouse_business_requirements_md_context.md,
+# docs/data_profiles/media_customer_reviews.md, docs/data_profiles/data_model_summary.md.
+version: 1.1
+comment: >-
+  Customer reviews of franchise locations at review grain (one row per review): review counts by franchise,
+  country, city and size. Reviews are free text with no rating, so there is no score, sentiment or NPS; review
+  text is never exposed. Reviews link to sales only through the franchise and cover 2024-05-20 to 2024-05-31,
+  which does not overlap the sales period. Review Load Date is a batch load timestamp, not when the review was written.
+
+source: ${source_catalog}.${source_schema}.media_customer_reviews
+
+joins:
+  # verified: media_customer_reviews -> sales_franchises on franchiseID = franchiseID, orphan_rate 0.0
+  - name: franchises
+    source: ${source_catalog}.${source_schema}.sales_franchises
+    on: source.franchiseID = franchises.franchiseID
+    cardinality: many_to_one
+    rely:
+      at_most_one_match: true
+
+dimensions:
+  - name: Franchise ID
+    expr: source.franchiseID
+    comment: "Franchise identifier; use it to tell apart franchises that share a name"
+  - name: Franchise Name
+    expr: franchises.name
+    comment: "Name of the reviewed franchise; not unique (two names are used by two franchises each), so group by Franchise ID too"
+    synonyms:
+      - store
+      - outlet
+      - location
+      - shop
+  - name: Franchise City
+    expr: franchises.city
+    comment: "City where the reviewed franchise is located"
+    synonyms:
+      - city
+  - name: Franchise Country
+    expr: franchises.country
+    comment: "Country where the reviewed franchise is located (US, Japan, Australia, ...). Uses 'US', not 'USA'"
+    synonyms:
+      - country
+      - market
+  - name: Franchise Size
+    expr: franchises.size
+    comment: "Size class of the reviewed franchise (S, M, L, XL, XXL); sort by Franchise Size Rank"
+    synonyms:
+      - store size
+  - name: Franchise Size Rank
+    expr: CASE `Franchise Size` WHEN 'S' THEN 1 WHEN 'M' THEN 2 WHEN 'L' THEN 3 WHEN 'XL' THEN 4 WHEN 'XXL' THEN 5 END
+    comment: "Sort order for Franchise Size (S=1 ... XXL=5)"
+  - name: Review Load Date
+    expr: DATE_TRUNC('DAY', source.review_date)
+    comment: "Day the review batch was loaded (only a few distinct timestamps); not the day the review was written, so avoid day-level trends"
+    synonyms:
+      - review date
+    format:
+      type: date
+      date_format: year_month_day
+
+measures:
+  - name: Reviews
+    expr: COUNT(DISTINCT source.new_id)
+    comment: "Number of customer reviews (text only; no rating)"
+    synonyms:
+      - review count
+      - number of reviews
+      - feedback count
+  - name: Reviewed Franchises
+    expr: COUNT(DISTINCT source.franchiseID)
+    comment: "Distinct franchises with at least one review"
+  - name: Reviews per Franchise
+    expr: MEASURE(`Reviews`) / MEASURE(`Reviewed Franchises`)
+    comment: "Average number of reviews per reviewed franchise"
+    format:
+      type: number
+      decimal_places:
+        type: exact
+        places: 2

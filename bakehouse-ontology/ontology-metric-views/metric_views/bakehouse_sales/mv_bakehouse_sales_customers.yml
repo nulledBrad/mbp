@@ -1,0 +1,132 @@
+# subdomain: sales
+# Customer-grain purchase behaviour. One row of source = one customer who bought at least once
+# (transactions pre-aggregated per customer over all available data, 2024-05-01 to 2024-05-17).
+# Sources: docs/research/02_kpi_definitions.md (repeat customer rate, CLV proxy, RFM),
+# docs/data_profiles/sales_customers.md, docs/data_profiles/data_model_summary.md.
+version: 1.1
+comment: >-
+  Customer-level purchase behaviour over all available data: customer counts, repeat customer rate, revenue per
+  customer (a historical lifetime value proxy), transactions per customer and first / last purchase dates for
+  recency analysis. Customer geography is the customer's home country or continent (use only for questions about
+  customers from a place). Customer names, contact details, addresses, postal codes, city, state and gender are
+  not exposed; customers are aggregated, never listed. Period filters on sales belong in mv_bakehouse_sales_transactions.
+
+source: |-
+  SELECT
+    customerID,
+    COUNT(DISTINCT transactionID) AS transaction_count,
+    SUM(totalPrice) AS revenue,
+    SUM(quantity) AS units,
+    MIN(dateTime) AS first_purchase_at,
+    MAX(dateTime) AS last_purchase_at
+  FROM ${source_catalog}.${source_schema}.sales_transactions
+  GROUP BY customerID
+
+joins:
+  # verified: sales_transactions -> sales_customers on customerID = customerID, orphan_rate 0.0 (source pre-aggregated to one row per customerID)
+  - name: customers
+    source: ${source_catalog}.${source_schema}.sales_customers
+    on: source.customerID = customers.customerID
+    cardinality: many_to_one
+    rely:
+      at_most_one_match: true
+
+dimensions:
+  - name: Customer Country
+    expr: customers.country
+    comment: "Home country of the customer (Australia, USA, Japan). Uses 'USA', not 'US' as franchise country does"
+    synonyms:
+      - customers from
+      - customer nation
+  - name: Customer Continent
+    expr: customers.continent
+    comment: "Home continent of the customer (Oceania, North America, Asia)"
+  - name: Customer Transactions
+    expr: source.transaction_count
+    comment: "Number of transactions the customer made over all available data (purchase frequency)"
+    synonyms:
+      - purchase frequency
+      - visits
+  - name: Purchase Frequency Band
+    expr: CASE WHEN `Customer Transactions` = 1 THEN '1 transaction' WHEN `Customer Transactions` <= 5 THEN '2-5 transactions' WHEN `Customer Transactions` <= 10 THEN '6-10 transactions' ELSE '11+ transactions' END
+    comment: "Customer bucket by number of transactions; groups customers for frequency (RFM) analysis"
+    synonyms:
+      - frequency segment
+  - name: Is Repeat Customer
+    expr: "`Customer Transactions` > 1"
+    comment: "True when the customer made more than one transaction"
+    synonyms:
+      - returning customer
+  - name: First Purchase Date
+    expr: DATE_TRUNC('DAY', source.first_purchase_at)
+    comment: "Day of the customer's first transaction in the data"
+    format:
+      type: date
+      date_format: year_month_day
+  - name: Last Purchase Date
+    expr: DATE_TRUNC('DAY', source.last_purchase_at)
+    comment: "Day of the customer's most recent transaction in the data (recency)"
+    synonyms:
+      - recency
+    format:
+      type: date
+      date_format: year_month_day
+
+measures:
+  - name: Customers
+    expr: COUNT(DISTINCT source.customerID)
+    comment: "Distinct customers with at least one transaction over all available data"
+    synonyms:
+      - customer count
+      - buying customers
+  - name: Repeat Customers
+    expr: COUNT(DISTINCT source.customerID) FILTER (WHERE `Is Repeat Customer`)
+    comment: "Distinct customers with more than one transaction"
+    synonyms:
+      - returning customers
+  - name: Repeat Customer Rate
+    expr: MEASURE(`Repeat Customers`) / MEASURE(`Customers`)
+    comment: "Customers with more than one transaction divided by customers with at least one"
+    synonyms:
+      - repeat purchase rate
+      - returning customer rate
+    format:
+      type: percentage
+      decimal_places:
+        type: exact
+        places: 1
+  - name: Customer Revenue
+    expr: SUM(source.revenue)
+    comment: "Revenue (sum of totalPrice) from these customers over all available data"
+    synonyms:
+      - customer spend
+  - name: Revenue per Customer
+    expr: MEASURE(`Customer Revenue`) / MEASURE(`Customers`)
+    comment: "Average revenue per customer over all available data; a historical proxy for customer lifetime value (no cost data, so not profit-based)"
+    synonyms:
+      - customer lifetime value
+      - CLV
+      - average customer spend
+    format:
+      type: number
+      decimal_places:
+        type: exact
+        places: 2
+  - name: Average Transactions per Customer
+    expr: SUM(source.transaction_count) / MEASURE(`Customers`)
+    comment: "Average number of transactions per customer over all available data"
+    synonyms:
+      - average visits per customer
+    format:
+      type: number
+      decimal_places:
+        type: exact
+        places: 2
+  - name: Average Units per Customer
+    expr: SUM(source.units) / MEASURE(`Customers`)
+    comment: "Average units bought per customer over all available data"
+    format:
+      type: number
+      decimal_places:
+        type: exact
+        places: 2
