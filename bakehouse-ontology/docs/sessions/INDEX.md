@@ -3,7 +3,7 @@
 One line per build session summary, newest first. Maintained by the wave integrator.
 
 * 2026-11-28 | wave 4 | session 08 | Genie Agent Curation | edit | pass | [summary](2026-11-28_w4-08-agent-curation.md)
-* 2026-11-28 | wave 4 | session 07 | UC Pages Registration | edit | blocked | [summary](2026-11-28_w4-07-uc-pages.md)
+* 2026-11-28 | wave 4 | session 07 | UC Pages Registration | edit | pass (publishing deferred) | [summary](2026-11-28_w4-07-uc-pages.md)
 * 2026-11-27 | wave 3 | session 06 | Metric View Registration & Smoke Tests | edit | pass | [summary](2026-11-27_w3-06-metric-view-registration.md)
 * 2026-11-27 | wave 2 | session 05 | Metric View YAML Synthesis | edit | pass | [summary](2026-11-27_w2-05-metric-view-synthesis.md)
 * 2026-11-27 | wave 1 | session 04 | Deep EDA & Join Cardinality | edit | pass | [summary](2026-11-27_w1-04-deep-eda.md)
