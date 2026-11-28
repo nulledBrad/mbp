@@ -1,0 +1,142 @@
+# Benchmark questions for the bakehouse_sales Genie Agents (session 10, wave 6).
+# Expected answers were computed with read-only queries on the registered metric views and match the owner's
+# requirements (Q1-Q10) where they overlap. Scalar expected_answer: benchmark.score matches it against any cell
+# of the first result row. Wording deliberately differs from the agent's sample_questions.
+- id: q01
+  question: "What were total gross sales across all available data?"
+  expected_answer: 66471
+  expected_sql: |
+    SELECT MEASURE(`Revenue`) AS revenue
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+  tags: ["agent:bakehouse_sales_agent", simple, synonym]
+- id: q02
+  question: "How many orders were placed overall?"
+  expected_answer: 3333
+  expected_sql: |
+    SELECT MEASURE(`Transactions`) AS transactions
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+  tags: ["agent:bakehouse_sales_agent", simple, synonym]
+- id: q03
+  question: "How many items were sold in total?"
+  expected_answer: 22157
+  expected_sql: |
+    SELECT MEASURE(`Units Sold`) AS units_sold
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+  tags: ["agent:bakehouse_sales_agent", simple, synonym]
+- id: q04
+  question: "Which bakery product generated the most sales?"
+  expected_answer: "Golden Gate Ginger"
+  expected_sql: |
+    SELECT `Product`, MEASURE(`Revenue`) AS revenue
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+    GROUP BY ALL ORDER BY revenue DESC LIMIT 1
+  tags: ["agent:bakehouse_sales_agent", breakdown, synonym]
+- id: q05
+  question: "Which country's franchises brought in the highest revenue?"
+  expected_answer: "Japan"
+  expected_sql: |
+    SELECT `Franchise Country`, MEASURE(`Revenue`) AS revenue
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+    GROUP BY ALL ORDER BY revenue DESC LIMIT 1
+  tags: ["agent:bakehouse_sales_agent", breakdown]
+- id: q06
+  question: "What was revenue from franchises located in the US?"
+  expected_answer: 20736
+  expected_sql: |
+    SELECT MEASURE(`Revenue`) AS revenue
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+    WHERE `Franchise Country` = 'US'
+  tags: ["agent:bakehouse_sales_agent", filter]
+- id: q07
+  question: "Which card type was used for the most transactions?"
+  expected_answer: "Mastercard"
+  expected_sql: |
+    SELECT `Payment Method`, MEASURE(`Transactions`) AS transactions
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+    GROUP BY ALL ORDER BY transactions DESC LIMIT 1
+  tags: ["agent:bakehouse_sales_agent", breakdown, synonym]
+- id: q08
+  question: "What is the average ticket size across all transactions?"
+  expected_answer: 19.943294
+  expected_sql: |
+    SELECT MEASURE(`Average Order Value`) AS aov
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+  tags: ["agent:bakehouse_sales_agent", ratio, synonym]
+- id: q09
+  question: "How many unique customers made at least one purchase?"
+  expected_answer: 300
+  expected_sql: |
+    SELECT MEASURE(`Active Customers`) AS active_customers
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+  tags: ["agent:bakehouse_sales_agent", simple]
+- id: q10
+  question: "Which week had the highest revenue, and how much was it?"
+  expected_answer: 28509
+  expected_sql: |
+    SELECT `Transaction Week`, MEASURE(`Revenue`) AS revenue
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+    GROUP BY ALL ORDER BY revenue DESC LIMIT 1
+  tags: ["agent:bakehouse_sales_agent", time]
+- id: q11
+  question: "How much revenue did we make on our single best sales day?"
+  expected_answer: 4500
+  expected_sql: |
+    SELECT `Transaction Date`, MEASURE(`Revenue`) AS revenue
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+    GROUP BY ALL ORDER BY revenue DESC LIMIT 1
+  tags: ["agent:bakehouse_sales_agent", time]
+- id: q12
+  question: "What fraction of total revenue came from Golden Gate Ginger?"
+  expected_answer: 0.174437
+  expected_sql: |
+    SELECT `Product`, MEASURE(`Product Revenue Share`) AS share
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+    GROUP BY ALL HAVING `Product` = 'Golden Gate Ginger'
+  tags: ["agent:bakehouse_sales_agent", ratio, filter]
+- id: q13
+  question: "What is the average selling price per unit?"
+  expected_answer: 3.0
+  expected_sql: |
+    SELECT MEASURE(`Average Unit Price`) AS average_unit_price
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+  tags: ["agent:bakehouse_sales_agent", ratio, synonym]
+- id: q14
+  question: "How many franchise locations are in Japan?"
+  expected_answer: 20
+  expected_sql: |
+    SELECT MEASURE(`Franchises`) AS franchises
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_franchise_network
+    WHERE `Franchise Country` = 'Japan'
+  tags: ["agent:bakehouse_sales_agent", filter]
+- id: q15
+  question: "How many franchises have no matching supplier record?"
+  expected_answer: 21
+  expected_sql: |
+    SELECT MEASURE(`Franchises With Unknown Supplier`) AS unknown_supplier_franchises
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_franchise_network
+  tags: ["agent:bakehouse_sales_agent", edge]
+- id: q16
+  question: "What is the average customer lifetime value?"
+  expected_answer: 221.57
+  expected_sql: |
+    SELECT MEASURE(`Revenue per Customer`) AS revenue_per_customer
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_customers
+  tags: ["agent:bakehouse_sales_agent", ratio, synonym]
+- id: q17
+  question: "How many customer reviews do we have in total?"
+  expected_answer: 204
+  expected_sql: |
+    SELECT MEASURE(`Reviews`) AS reviews
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_customer_reviews
+  tags: ["agent:bakehouse_sales_agent", simple]
+- id: q18
+  question: "Which store size class generated the most revenue?"
+  expected_answer: "XL"
+  expected_sql: |
+    SELECT `Franchise Size`, MEASURE(`Revenue`) AS revenue
+    FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions
+    GROUP BY ALL ORDER BY revenue DESC LIMIT 1
+  tags: ["agent:bakehouse_sales_agent", breakdown, synonym]
+- id: q19
+  question: "What is the average star rating of franchise reviews?"
+  tags: ["agent:bakehouse_sales_agent", edge, no_expectation]

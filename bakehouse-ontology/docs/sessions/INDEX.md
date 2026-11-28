@@ -2,6 +2,7 @@
 
 One line per build session summary, newest first. Maintained by the wave integrator.
 
+* 2026-11-28 | wave 6 | session 10 | Benchmark & Tuning | edit | pass | [summary](2026-11-28_w6-10-benchmark-tuning.md)
 * 2026-11-28 | wave 5 | session 09 | Genie Agent Deployment & Probe | edit | pass | [summary](2026-11-28_w5-09-agent-deployment.md)
 * 2026-11-28 | wave 4 | session 08 | Genie Agent Curation | edit | pass | [summary](2026-11-28_w4-08-agent-curation.md)
 * 2026-11-28 | wave 4 | session 07 | UC Pages Registration | edit | pass (publishing deferred) | [summary](2026-11-28_w4-07-uc-pages.md)
