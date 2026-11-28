@@ -1,0 +1,131 @@
+{
+  "config": {
+    "sample_questions": [
+      {
+        "id": "152474ad00a959b9a896a07ff4665504",
+        "question": [
+          "Which franchises have the most reviews?"
+        ]
+      },
+      {
+        "id": "39625ddca69451e3b33b374bb43e2e24",
+        "question": [
+          "What share of franchises have an approved supplier?"
+        ]
+      },
+      {
+        "id": "3c09d7840f075bb4ae3c6abe2d153653",
+        "question": [
+          "How many franchises are there by size?"
+        ]
+      },
+      {
+        "id": "66e385d2c06957f4aa404fd7e8eea8ad",
+        "question": [
+          "What is the repeat customer rate?"
+        ]
+      },
+      {
+        "id": "7461a1571202577b8a39e3f5a30fec99",
+        "question": [
+          "How many transactions were there by payment method?"
+        ]
+      },
+      {
+        "id": "861ab60082225cd28b9df7a2d8dcf304",
+        "question": [
+          "What was the average order value by week?"
+        ]
+      },
+      {
+        "id": "8e67afb76ecd59ed9ef14c0fb2948a4c",
+        "question": [
+          "What was total revenue?"
+        ]
+      },
+      {
+        "id": "bd9ec9d543ac58789cd0ed81b4e1206d",
+        "question": [
+          "Which product had the highest revenue?"
+        ]
+      },
+      {
+        "id": "d540512059a1579f92696d7ad7c6d961",
+        "question": [
+          "What is revenue by franchise country?"
+        ]
+      }
+    ]
+  },
+  "data_sources": {
+    "tables": [
+      {
+        "description": [
+          "Customer reviews of franchise locations at review grain: review counts by franchise, country, city and size."
+        ],
+        "identifier": "${target_catalog}.${target_schema}.mv_bakehouse_customer_reviews"
+      },
+      {
+        "description": [
+          "Franchise network at franchise grain: franchise counts by country, city and size, and supplier coverage and approval."
+        ],
+        "identifier": "${target_catalog}.${target_schema}.mv_bakehouse_franchise_network"
+      },
+      {
+        "description": [
+          "Customer-level purchase behaviour over all data: customers, repeat customer rate, revenue and transactions per customer."
+        ],
+        "identifier": "${target_catalog}.${target_schema}.mv_bakehouse_sales_customers"
+      },
+      {
+        "description": [
+          "Sales at transaction grain: revenue, units, transactions, average order value, product and payment mix by franchise, product and date."
+        ],
+        "identifier": "${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions"
+      }
+    ]
+  },
+  "instructions": {
+    "example_question_sqls": [
+      {
+        "id": "769b639a2a78514b9a42c5b18f34456d",
+        "question": [
+          "How did weekly revenue change compared with the previous week?"
+        ],
+        "sql": [
+          "WITH weekly AS (",
+          "  SELECT `Transaction Week` AS week, MEASURE(`Revenue`) AS revenue",
+          "  FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions",
+          "  GROUP BY ALL",
+          ")",
+          "SELECT week, revenue, revenue - LAG(revenue) OVER (ORDER BY week) AS change_vs_previous_week",
+          "FROM weekly",
+          "ORDER BY week"
+        ]
+      },
+      {
+        "id": "a6008735be955c65901d0f1a12f90add",
+        "question": [
+          "Which 5 franchises had the highest revenue?"
+        ],
+        "sql": [
+          "SELECT `Franchise ID`, `Franchise Name`, `Franchise Country`, MEASURE(`Revenue`) AS revenue",
+          "FROM ${target_catalog}.${target_schema}.mv_bakehouse_sales_transactions",
+          "GROUP BY ALL",
+          "ORDER BY revenue DESC",
+          "LIMIT 5"
+        ]
+      }
+    ],
+    "text_instructions": [
+      {
+        "content": [
+          "If a question gives no period, use all available data and state the date range it covers.",
+          "If a question needs data these metric views do not hold (costs, margins, staffing, inventory, review ratings or sentiment), say the data is not available instead of estimating it."
+        ],
+        "id": "14e85a00e4f25f63988b983b8c948ee3"
+      }
+    ]
+  },
+  "version": 2
+}

@@ -1,0 +1,12 @@
+domains:
+- name: bakehouse_sales
+  description: Sales, franchise network, supplier and customer-review knowledge for
+    a franchised bakery chain.
+  subdomains:
+  - name: bakehouse_sales
+    metric_views:
+    - mv_bakehouse_customer_reviews
+    - mv_bakehouse_franchise_network
+    - mv_bakehouse_sales_customers
+    - mv_bakehouse_sales_transactions
+    agent: bakehouse_sales_agent
